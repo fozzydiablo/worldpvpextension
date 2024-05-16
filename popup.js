@@ -1,68 +1,98 @@
-console.log('Script loaded'); // This will confirm the script is loading
-
+//test
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM fully loaded and parsed');
     const fetchButton = document.getElementById('fetchButton');
+    const helloButton = document.getElementById('helloButton'); // Get the new button
+
     if (fetchButton) {
         fetchButton.addEventListener('click', function() {
-            console.log('Button clicked');
-            const apiKey = document.getElementById('apiKeyInput').value;
-            if (apiKey) {
-                loadCountryList().then(countryList => {
-                    fetchTokenTransactions(apiKey, countryList);
-                }).catch(error => {
-                    console.error('Error loading country list:', error);
-                });
-            } else {
-                console.error('API Key is required');
-            }
+            console.log('Fetch button clicked'); // Existing functionality
+            // Your existing fetch code here
         });
-    } else {
-        console.error('Fetch button not found');
+    }
+
+    if (helloButton) {
+        helloButton.addEventListener('click', function() {
+            console.log('Hello World'); // Log "Hello World" to the console
+        });
     }
 });
 
 document.getElementById('fetchButton').addEventListener('click', function() {
     const apiKey = document.getElementById('apiKeyInput').value;
-    if (apiKey) {
-        console.log('clicked');
+    const address = document.getElementById('addressInput').value;
+    if (apiKey && address) {
         loadCountryList().then(countryList => {
-            fetchTokenTransactions(apiKey, countryList);
+            fetchTokenTransactions(apiKey, address, countryList);
         }).catch(error => {
-            console.error('Error loading country list:', error);
+            console.error('Failed to load country list:', error);
         });
     } else {
-        console.error('API Key is required');
+        console.error('API Key and Wallet Address are required');
     }
 });
+
 
 function loadCountryList() {
     return fetch('countrylist.json')
         .then(response => response.json())
         .then(data => {
-            return data;  // Returns the country list array
+            console.log('Loaded country list:', data);  // Confirm the data is loaded correctly
+            return data;
         });
 }
 
-function fetchTokenTransactions(apiKey, countryList) {
-    const apiUrl = `https://api.basescan.org/api?module=account&action=tokentx&address=0x0B28BDCE48a29635CD7dc3A51A66d103E564C564&page=1&offset=100&startblock=0&endblock=27025780&sort=desc&apikey=${apiKey}`;
-    console.log("Fetching data from API at URL:", apiUrl);
+function fetchTokenTransactions(apiKey, address, countryList) {
+    const apiUrl = `https://api.basescan.org/api?module=account&action=tokentx&address=${address}&page=1&offset=500&startblock=0&endblock=27025780&sort=desc&apikey=${apiKey}`;
 
     fetch(apiUrl)
         .then(response => response.json())
         .then(data => {
-            console.log("Data parsed to JSON", data);
-            if (data.status === "1" && data.message === "OK") {
-                console.log('Transactions fetched successfully.');
-                let ownedTokens = data.result.filter(tx => tx.to.toLowerCase() === '0x0B28BDCE48a29635CD7dc3A51A66d103E564C564'.toLowerCase())
-                                            .map(tx => tx.tokenAddress);
-                let ownedCountries = countryList.filter(country => ownedTokens.includes(country.tokenAddress));
-                ownedCountries.forEach(country => {
-                    console.log(country.name);  // Log the name of countries for tokens owned
+            console.log("API Response:", data);
+            if (data.status === "1" && data.message === "OK" && data.result) {
+                let transactionsWithAddresses = data.result.filter(tx => tx.to && tx.contractAddress);
+                console.log("Transactions with addresses:", transactionsWithAddresses);
+
+                let ownedTokens = transactionsWithAddresses
+                    .filter(tx => tx.to.toLowerCase() === address.toLowerCase())
+                    .map(tx => tx.contractAddress.toLowerCase());
+
+                console.log("Filtered Owned Tokens:", ownedTokens);
+
+                let ownedCountries = countryList.filter(country => country.tokenAddress && ownedTokens.includes(country.tokenAddress.toLowerCase()));
+                console.log("Owned Countries:", ownedCountries);
+
+                let ownedCountrySymbols = ownedCountries.map(country => country.symbol);
+                console.log("Owned country symbols:", ownedCountrySymbols);
+
+                chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+                    if (tabs.length === 0) {
+                        console.error("No active tab found");
+                        return;
+                    }
+                    chrome.scripting.executeScript({
+                        target: {tabId: tabs[0].id},
+                        files: ['contentScript.js']
+                    }, function(injectionResults) {
+                        if (chrome.runtime.lastError || !injectionResults || injectionResults.length === 0) {
+                            console.error("Script injection failed", chrome.runtime.lastError);
+                        } else {
+                            chrome.tabs.sendMessage(tabs[0].id, {action: "highlightCountries", countries: ownedCountrySymbols}, function(response) {
+                                if (chrome.runtime.lastError) {
+                                    console.error("Message sending failed", chrome.runtime.lastError);
+                                } else {
+                                    console.log("Message sent successfully", response);
+                                }
+                            });
+                        }
+                    });
                 });
             } else {
-                console.error('Failed to fetch data:', data.message);
+                console.error('Failed to fetch data or invalid data structure:', data.message);
             }
         })
         .catch(error => console.error('Error fetching data:', error));
 }
+
+
+
+

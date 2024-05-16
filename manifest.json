@@ -1,0 +1,35 @@
+{
+    "manifest_version": 3,
+    "name": "World Pvp Tracker",
+    "version": "1.0",
+    "description": "Run scripts on active tabs",
+    "permissions": [
+        "activeTab",
+        "scripting",
+        "storage" // Allows storing and retrieving data using the chrome.storage API
+    ],
+    "host_permissions": [
+        "https://api.basescan.org/*" // Grants access to make requests to this domain
+    ],
+    "background": {
+        "service_worker": "background.js" // Points to the background service worker script
+    },
+    "action": {
+        "default_popup": "popup.html", // HTML file to be shown when the user clicks on the extension icon
+        "default_icon": "icon.png" // Default icon; ensure these files exist at the root or adjust the path
+    },
+    "web_accessible_resources": [
+        {
+            "resources": ["countrylist.json"], // Ensure this file is used correctly in the extension scripts
+            "matches": ["<all_urls>"] // This file can be accessed by any web page
+        }
+    ],
+    "content_security_policy": {
+        "extension_pages": "script-src 'self'; object-src 'self'" // Restricts which scripts can be run on extension pages
+    },
+    "icons": {
+        "16": "icon.png", // Small icon, typically shown in the browser toolbar
+        "48": "icon.png", // Medium icon, used in the extension management UI
+        "128": "icon.png" // Large icon, used in the Chrome Web Store and during installation
+    }
+}
